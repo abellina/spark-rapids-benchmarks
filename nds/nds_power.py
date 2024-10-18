@@ -240,7 +240,8 @@ def run_query_stream(input_prefix,
                      keep_sc=False,
                      hive_external=False,
                      allow_failure=False,
-                     profiling_hook=None):
+                     profiling_hook=None,
+                     num_iter=1):
     """run SQL in Spark and record execution time log. The execution time log is saved as a CSV file
     for easy accesibility. TempView Creation time is also recorded.
 
@@ -302,28 +303,33 @@ def run_query_stream(input_prefix,
     # Run query
     power_start = int(time.time())
     for query_name, q_content in query_dict.items():
-        # show query name in Spark web UI
-        spark_session.sparkContext.setJobGroup(query_name, query_name)
-        print("====== Run {} ======".format(query_name))
-        q_report = PysparkBenchReport(spark_session, query_name)
-        summary = q_report.report_on(run_one_query,spark_session,
-                                                   profiler,
-                                                   q_content,
-                                                   query_name,
-                                                   output_path,
-                                                   output_format)
-        print(f"Time taken: {summary['queryTimes']} millis for {query_name}")
-        query_times = summary['queryTimes']
-        execution_time_list.append((spark_app_id, query_name, query_times[0]))
-        queries_reports.append(q_report)
-        if json_summary_folder:
-            # property_file e.g.: "property/aqe-on.properties" or just "aqe-off.properties"
-            if property_file:
-                summary_prefix = os.path.join(
-                    json_summary_folder, os.path.basename(property_file).split('.')[0])
-            else:
-                summary_prefix =  os.path.join(json_summary_folder, '')
-            q_report.write_summary(prefix=summary_prefix)
+        for iteration in range(1, num_iter+1):
+            # show query name in Spark web UI
+            spark_session.sparkContext.setJobGroup(query_name, query_name)
+            print("====== Run {} ======".format(query_name))
+            if num_iter > 1:
+                print("====== Iteration {} ======".format(iteration))
+                iteration = iteration + 1
+
+            q_report = PysparkBenchReport(spark_session, query_name)
+            summary = q_report.report_on(run_one_query,spark_session,
+                                                       profiler,
+                                                       q_content,
+                                                       query_name,
+                                                       output_path,
+                                                       output_format)
+            print(f"Time taken: {summary['queryTimes']} millis for {query_name}")
+            query_times = summary['queryTimes']
+            execution_time_list.append((spark_app_id, query_name, query_times[0]))
+            queries_reports.append(q_report)
+            if json_summary_folder:
+                # property_file e.g.: "property/aqe-on.properties" or just "aqe-off.properties"
+                if property_file:
+                    summary_prefix = os.path.join(
+                        json_summary_folder, os.path.basename(property_file).split('.')[0])
+                else:
+                    summary_prefix =  os.path.join(json_summary_folder, '')
+                q_report.write_summary(prefix=summary_prefix)
     power_end = int(time.time())
     power_elapse = int((power_end - power_start)*1000)
     if not keep_sc:
@@ -445,6 +451,11 @@ if __name__ == "__main__":
                         help='Executable that is called just before/after a query executes.' +
                         'The executable is called like this ' +
                         './hook {start|stop} output_root query_name.')
+    parser.add_argument('--num_iter',
+                        help='The number of times a query should be repeated, useful for testing purposes. ' +
+                        'Defaults to 1 (no repetition.)',
+                        type=int,
+                        default=1)
     args = parser.parse_args()
     query_dict = gen_sql_from_stream(args.query_stream_file)
     run_query_stream(args.input_prefix,
@@ -462,4 +473,5 @@ if __name__ == "__main__":
                      args.keep_sc,
                      args.hive,
                      args.allow_failure,
-                     args.profiling_hook)
+                     args.profiling_hook,
+                     args.num_iter)
