@@ -172,16 +172,14 @@ def run_one_query(spark_session,
     with profiler(query_name=query_name):
         print(f"Running query {query_name}")
         df = spark_session.sql(query)
-        res = None
+        
         if not output_path:
-            res = df.collect()
+            df.collect()
         else:
             ensure_valid_column_names(df).write.format(output_format).mode('overwrite').save(
                     output_path + '/' + query_name)
 
-        if res is not None:
-            res._detach()
-        df._detach()
+        df._jdf._detach()
 
 
 def ensure_valid_column_names(df: DataFrame):
