@@ -394,7 +394,7 @@ def load_properties(filename):
 
 if __name__ == "__main__":
     parser = parser = argparse.ArgumentParser()
-    parser.add_argument("alt_input_prefix", type=str)
+
     parser.add_argument('input_prefix',
                         help='text to prepend to every input file path (e.g., "hdfs:///ds-generated-data"). ' +
                         'If --hive or if input_format is "iceberg", this argument will be regarded as the value of property ' +
@@ -407,6 +407,7 @@ if __name__ == "__main__":
     parser.add_argument('time_log',
                         help='path to execution time log, only support local path.',
                         default="")
+    parser.add_argument("--alt_input_prefix", type=str)
     parser.add_argument('--input_format',
                         help='type for input data source, e.g. parquet, orc, json, csv or iceberg, delta. ' +
                         'Certain types are not fully supported by GPU reading, please refer to ' +
