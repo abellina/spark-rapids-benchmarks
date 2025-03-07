@@ -117,7 +117,7 @@ def gen_sql_from_stream(query_stream_file_path):
         extended_queries[q_name] = '-- start' + q_content
     return extended_queries
 
-def setup_tables(spark_session, input_prefix, input_format, use_decimal, execution_time_list):
+def setup_tables(spark_session, input_prefix, alt_input_prefix, input_format, use_decimal, execution_time_list):
     """set up data tables in Spark before running the Power Run queries.
 
     Args:
@@ -138,7 +138,10 @@ def setup_tables(spark_session, input_prefix, input_format, use_decimal, executi
         reader =  spark_session.read.format(input_format)
         if input_format in ['csv', 'json']:
             reader = reader.schema(get_schemas(use_decimal)[table_name])
-        reader.load(table_path).createOrReplaceTempView(table_name)
+        if table_name == "store_sales":
+            reader.load(alt_input_prfix + '/' + table_name).createOrReplaceTempView(table_name)
+        else:
+            reader.load(table_path).createOrReplaceTempView(table_name)
         end = int(time.time() * 1000)
         print("====== Creating TempView for table {} ======".format(table_name))
         print("Time taken: {} millis for table {}".format(end - start, table_name))
@@ -229,6 +232,7 @@ def get_query_subset(query_dict, subset):
 
 
 def run_query_stream(input_prefix,
+                     alt_input_prefix,
                      property_file,
                      query_dict,
                      time_log_output_path,
@@ -293,7 +297,7 @@ def run_query_stream(input_prefix,
         execution_time_list = register_delta_tables(spark_session, input_prefix, execution_time_list)
     spark_app_id = spark_session.sparkContext.applicationId
     if input_format != 'iceberg' and input_format != 'delta' and not hive_external:
-        execution_time_list = setup_tables(spark_session, input_prefix, input_format, use_decimal,
+        execution_time_list = setup_tables(spark_session, input_prefix, alt_input_prefix, input_format, use_decimal,
                                            execution_time_list)
 
     check_json_summary_folder(json_summary_folder)
@@ -390,6 +394,7 @@ def load_properties(filename):
 
 if __name__ == "__main__":
     parser = parser = argparse.ArgumentParser()
+    parser.add_argument("alt_input_prefix", type=str)
     parser.add_argument('input_prefix',
                         help='text to prepend to every input file path (e.g., "hdfs:///ds-generated-data"). ' +
                         'If --hive or if input_format is "iceberg", this argument will be regarded as the value of property ' +
@@ -462,6 +467,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     query_dict = gen_sql_from_stream(args.query_stream_file)
     run_query_stream(args.input_prefix,
+                     args.alt_input_prefix,
                      args.property_file,
                      query_dict,
                      args.time_log,
