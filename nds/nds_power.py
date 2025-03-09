@@ -138,10 +138,7 @@ def setup_tables(spark_session, input_prefix, alt_input_prefix, input_format, us
         reader =  spark_session.read.format(input_format)
         if input_format in ['csv', 'json']:
             reader = reader.schema(get_schemas(use_decimal)[table_name])
-        if table_name == "store_sales":
-            reader.load(alt_input_prefix + '/' + table_name).createOrReplaceTempView(table_name)
-        else:
-            reader.load(table_path).createOrReplaceTempView(table_name)
+        reader.load(table_path).createOrReplaceTempView(table_name)
         end = int(time.time() * 1000)
         print("====== Creating TempView for table {} ======".format(table_name))
         print("Time taken: {} millis for table {}".format(end - start, table_name))
